@@ -22,10 +22,10 @@ import {
 
 import { VoxelCollision } from './VoxelCollision';
 
-const SPLAT_URL = './new_badminton_court/badminton_court_new_axis.sog';
-const VOXEL_JSON_URL = './new_badminton_court/badminton_court_new_axis.voxel.json';
-const VOXEL_BIN_URL = './new_badminton_court/badminton_court_new_axis.voxel.bin';
-const GLB_SCENE = './new_badminton_court/badminton_court_new_axis.collision.glb';
+const SPLAT_URL = './resource/badminton_court.sog';
+const VOXEL_JSON_URL = './resource/badminton_court.voxel.json';
+const VOXEL_BIN_URL = './resource/badminton_court.voxel.bin';
+const GLB_SCENE = './resource/badminton_court.collision.glb';
 const DRONE_MODEL_URL = './resource/drone.glb';
 const GLB_OFFSET_X = 0;
 const GLB_OFFSET_Y = 0;
