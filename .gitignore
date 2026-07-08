@@ -1,0 +1,17 @@
+dist/
+.codex/
+.agents/
+node_modules/
+test_output/
+new_badminton_court/
+
+*.ply
+*.sog
+*.collision.json
+*.collision.glb
+*.spz
+*.voxel.bin
+*.voxel.json
+
+package.json
+package-lock.json

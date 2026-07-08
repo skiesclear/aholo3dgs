@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PLY → SOG Converter</title>
+    <title>PLY → SPZ Converter + Collision</title>
+    <meta charset="UTF-8" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #111;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            gap: 16px;
+        }
+        .card {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+        h1 { font-size: 20px; margin-bottom: 12px; }
+        p { font-size: 14px; color: #999; margin-bottom: 20px; }
+        input[type="file"] { display: none; }
+        label {
+            display: inline-block;
+            padding: 12px 28px;
+            background: #4a4aff;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: background 0.2s;
+        }
+        label:hover { background: #6666ff; }
+        label:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 16px;
+            font-size: 13px;
+            color: #aaa;
+            min-height: 20px;
+        }
+        #progress {
+            margin-top: 12px;
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+            display: none;
+        }
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #4a4aff;
+            transition: width 0.3s;
+        }
+        #download-btn {
+            display: none;
+            margin-top: 16px;
+            padding: 10px 24px;
+            background: #22c55e;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        #download-btn:hover { background: #34d673; }
+        .info { font-size: 12px; color: #666; margin-top: 8px; }
+        .step { color: #4a4aff; }
+        .done { color: #22c55e; }
+    </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>PLY → SPZ Converter + Collision</h1>
+            <p>Convert PLY → SPZ (compressed splat) + pre-computed collision boxes</p>
+            <label id="file-label" for="ply-file">Choose .ply file</label>
+            <input type="file" id="ply-file" accept=".ply" />
+            <div id="status">Ready</div>
+            <div id="progress"><div id="progress-bar"></div></div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">
+                <button id="download-btn" style="display:none;padding:10px 24px;background:#22c55e;color:#000;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Download .spz</button>
+                <button id="collision-btn" style="display:none;padding:10px 24px;background:#ffaa00;color:#000;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Download collision.json</button>
+            </div>
+            <div class="info">
+                <div>Step 1: Parse PLY → Step 2: Convert to SPZ → Step 3: Compute collision boxes</div>
+            </div>
+        </div>
+        <script type="module" src="./convert.js"></script>
+    </body>
+</html>
