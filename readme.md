@@ -1,3 +1,11 @@
-# Splat-transform
-splat-transform 是 Aholo Viewer 的一款 3DGS 处理工具。它可用于格式转换、数据简化、LOD 生成和体素碰撞器生成。
+将转换后的 .sog  .voxel.bin  .voxel.json 放在resource/下
 
+## 键盘鼠标控制
+index.html, index.ts 用于鼠标键盘控制无人机模型在渲染场景中运动
+
+
+## python代码控制
+python-control.html
+python-control.ts
+
+用于python代码控制无人机飞行；获取front、back、left、right、down 五视角图片；获取深度图
