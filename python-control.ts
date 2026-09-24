@@ -31,8 +31,12 @@ const VOXEL_OFFSET_Z = 0;
 const SPEED = 0.08;
 const COCKPIT_FORWARD_OFFSET = 0.17;
 const COCKPIT_UP_OFFSET = 0.12;
-const CAPTURE_SETTLE_FRAMES = 90;
-const CAPTURE_SETTLE_MS = 1000;
+// A handful of animation frames is enough for the splat sorter and render
+// targets to observe the new camera. readRenderResultAsync below provides the
+// final GPU synchronization. The old 90 frames + 1 second was paid five times
+// per pose and made dataset capture orders of magnitude slower than traj_gen.
+const CAPTURE_SETTLE_FRAMES = 8;
+const CAPTURE_SETTLE_MS = 100;
 const DEFAULT_DEPTH_MAX_DISTANCE = 100;
 const DEPTH_16_UNIT_SCALE = 100;
 const INITIAL_POSE: Pose6DoF = {
@@ -92,6 +96,16 @@ type DepthImageResult = {
     visualMaxDepth: number;
     depth16Unit: 'centimeter';
     depth16Scale: number;
+};
+
+type CameraViewMetadata = {
+    width: number;
+    height: number;
+    verticalFovDeg: number;
+    origin: { x: number; y: number; z: number };
+    forward: { x: number; y: number; z: number };
+    right: { x: number; y: number; z: number };
+    imageUp: { x: number; y: number; z: number };
 };
 
 const container = document.getElementById('container') as HTMLDivElement;
@@ -172,6 +186,32 @@ function getBasis(pose: Pose6DoF) {
 
 function poseToVector(pose: Pose6DoF) {
     return new Vector3(pose.x, pose.y, pose.z);
+}
+
+function vectorRecord(v: Vector3) {
+    return { x: v.x, y: v.y, z: v.z };
+}
+
+function cameraViewMetadata(
+    origin: Vector3,
+    direction: Vector3,
+    up: Vector3,
+    width: number,
+    height: number,
+    verticalFovDeg: number,
+): CameraViewMetadata {
+    const forward = normalize(direction.clone());
+    const right = normalize(forward.clone().cross(up));
+    const imageUp = normalize(right.clone().cross(forward));
+    return {
+        width,
+        height,
+        verticalFovDeg,
+        origin: vectorRecord(origin),
+        forward: vectorRecord(forward),
+        right: vectorRecord(right),
+        imageUp: vectorRecord(imageUp),
+    };
 }
 
 function getCockpitPosition(pose: Pose6DoF, basis = getBasis(pose)) {
@@ -623,14 +663,40 @@ async function createScene() {
         const captureOrigin = poseToVector(pose);
         const up = basis.imageUp;
         const depths: Record<string, DepthImageResult> = {};
+        const cameras: Record<string, CameraViewMetadata> = {};
+        const requestedDirections = Array.isArray(payload?.directions)
+            ? new Set(payload.directions.map((value: unknown) => String(value)))
+            : new Set(['front', 'back', 'left', 'right', 'down']);
+        const views: Record<string, { direction: Vector3; up: Vector3 }> = {
+            front: { direction: basis.forward, up },
+            back: { direction: basis.back, up },
+            left: { direction: basis.left, up },
+            right: { direction: basis.right, up },
+            down: { direction: basis.down, up: basis.forward },
+        };
 
-        depths.front = captureVoxelDepthView(captureOrigin, basis.forward, up, width, height, maxDistance, visualMaxDepth);
-        depths.back = captureVoxelDepthView(captureOrigin, basis.back, up, width, height, maxDistance, visualMaxDepth);
-        depths.left = captureVoxelDepthView(captureOrigin, basis.left, up, width, height, maxDistance, visualMaxDepth);
-        depths.right = captureVoxelDepthView(captureOrigin, basis.right, up, width, height, maxDistance, visualMaxDepth);
-        depths.down = captureVoxelDepthView(captureOrigin, basis.down, basis.forward, width, height, maxDistance, visualMaxDepth);
+        for (const [name, view] of Object.entries(views)) {
+            if (!requestedDirections.has(name)) continue;
+            depths[name] = captureVoxelDepthView(
+                captureOrigin,
+                view.direction,
+                view.up,
+                width,
+                height,
+                maxDistance,
+                visualMaxDepth,
+            );
+            cameras[name] = cameraViewMetadata(
+                captureOrigin,
+                view.direction,
+                view.up,
+                width,
+                height,
+                camera.fov,
+            );
+        }
 
-        return { pose: clonePose(pose), width, height, depths };
+        return { pose: clonePose(pose), width, height, depths, cameras };
     }
 
     async function captureFive(payload: any) {
@@ -646,13 +712,19 @@ async function createScene() {
             const captureOrigin = poseToVector(pose);
             const up = basis.imageUp;
             const captures: Record<string, string> = {};
+            const cameras: Record<string, CameraViewMetadata> = {};
             captures.front = await captureView(captureOrigin, basis.forward, up, width, height);
             captures.back = await captureView(captureOrigin, basis.back, up, width, height);
             captures.left = await captureView(captureOrigin, basis.left, up, width, height);
             captures.right = await captureView(captureOrigin, basis.right, up, width, height);
             captures.down = await captureView(captureOrigin, basis.down, basis.forward, width, height);
+            cameras.front = cameraViewMetadata(captureOrigin, basis.forward, up, width, height, camera.fov);
+            cameras.back = cameraViewMetadata(captureOrigin, basis.back, up, width, height, camera.fov);
+            cameras.left = cameraViewMetadata(captureOrigin, basis.left, up, width, height, camera.fov);
+            cameras.right = cameraViewMetadata(captureOrigin, basis.right, up, width, height, camera.fov);
+            cameras.down = cameraViewMetadata(captureOrigin, basis.down, basis.forward, width, height, camera.fov);
             if (!payload?.includeDepth) {
-                return { pose: clonePose(pose), width, height, images: captures };
+                return { pose: clonePose(pose), width, height, images: captures, cameras };
             }
 
             const maxDistance = Math.max(1e-6, Number(payload?.maxDistance || DEFAULT_DEPTH_MAX_DISTANCE));
@@ -662,18 +734,35 @@ async function createScene() {
             const depthWidth = Math.max(1, Math.floor(payload?.depthWidth || width));
             const depthHeight = Math.max(1, Math.floor(payload?.depthHeight || height));
             const depths: Record<string, DepthImageResult> = {};
-
-            depths.front = captureVoxelDepthView(captureOrigin, basis.forward, up, depthWidth, depthHeight, maxDistance, visualMaxDepth);
-            depths.back = captureVoxelDepthView(captureOrigin, basis.back, up, depthWidth, depthHeight, maxDistance, visualMaxDepth);
-            depths.left = captureVoxelDepthView(captureOrigin, basis.left, up, depthWidth, depthHeight, maxDistance, visualMaxDepth);
-            depths.right = captureVoxelDepthView(captureOrigin, basis.right, up, depthWidth, depthHeight, maxDistance, visualMaxDepth);
-            depths.down = captureVoxelDepthView(captureOrigin, basis.down, basis.forward, depthWidth, depthHeight, maxDistance, visualMaxDepth);
+            const requestedDepthDirections = Array.isArray(payload?.depthDirections)
+                ? new Set(payload.depthDirections.map((value: unknown) => String(value)))
+                : new Set(['front', 'back', 'left', 'right', 'down']);
+            const depthViews: Record<string, { direction: Vector3; up: Vector3 }> = {
+                front: { direction: basis.forward, up },
+                back: { direction: basis.back, up },
+                left: { direction: basis.left, up },
+                right: { direction: basis.right, up },
+                down: { direction: basis.down, up: basis.forward },
+            };
+            for (const [name, view] of Object.entries(depthViews)) {
+                if (!requestedDepthDirections.has(name)) continue;
+                depths[name] = captureVoxelDepthView(
+                    captureOrigin,
+                    view.direction,
+                    view.up,
+                    depthWidth,
+                    depthHeight,
+                    maxDistance,
+                    visualMaxDepth,
+                );
+            }
 
             return {
                 pose: clonePose(pose),
                 width,
                 height,
                 images: captures,
+                cameras,
                 depthWidth,
                 depthHeight,
                 depths,
