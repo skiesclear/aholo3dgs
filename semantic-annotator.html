@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aholo Semantic Instance Annotator</title>
+    <style>
+        :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+        * { box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #090b10; }
+        #app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; width: 100%; height: 100%; }
+        #viewport { position: relative; min-width: 0; overflow: hidden; background: #050608; }
+        #viewer { position: absolute; inset: 0; }
+        #overlay { position: absolute; inset: 0; pointer-events: none; }
+        .marker {
+            position: absolute; width: 18px; height: 18px; border: 2px solid #5eead4;
+            border-radius: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 0 2px rgba(5, 6, 8, .8), 0 0 14px rgba(94, 234, 212, .8);
+        }
+        .marker.pending { border-color: #fbbf24; box-shadow: 0 0 0 2px rgba(5, 6, 8, .8), 0 0 14px rgba(251, 191, 36, .8); }
+        .marker span {
+            position: absolute; left: 22px; top: -5px; padding: 3px 6px; border-radius: 4px;
+            color: #e7eef7; background: rgba(7, 10, 16, .78); white-space: nowrap; font-size: 11px;
+        }
+        #loading, #hint, #status {
+            position: absolute; z-index: 5; border: 1px solid rgba(255,255,255,.12);
+            background: rgba(7, 10, 16, .78); backdrop-filter: blur(8px); color: #dbe7f3;
+        }
+        #loading { left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 14px 18px; border-radius: 8px; }
+        #hint { left: 14px; top: 14px; max-width: 530px; padding: 9px 12px; border-radius: 7px; font-size: 12px; line-height: 1.5; }
+        #status { left: 14px; bottom: 14px; padding: 8px 11px; border-radius: 6px; font: 12px ui-monospace, monospace; }
+        aside { overflow: auto; padding: 18px; border-left: 1px solid #27313d; background: #10151d; color: #dce6f1; }
+        h1 { margin: 0 0 4px; font-size: 19px; }
+        .subtle { color: #8291a3; font-size: 12px; line-height: 1.45; }
+        section { margin-top: 18px; padding-top: 16px; border-top: 1px solid #27313d; }
+        label { display: block; margin: 10px 0 5px; color: #aab8c7; font-size: 12px; }
+        input, select, button {
+            width: 100%; min-height: 36px; border: 1px solid #334253; border-radius: 6px;
+            background: #151d27; color: #edf5ff; padding: 8px 10px; font: inherit;
+        }
+        button { cursor: pointer; font-weight: 650; }
+        button:hover { border-color: #5eead4; }
+        button.primary { background: #0f766e; border-color: #14b8a6; }
+        button.danger { color: #fecaca; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .metric { margin-top: 10px; padding: 9px; border-radius: 6px; background: #0b1017; font: 12px ui-monospace, monospace; line-height: 1.55; }
+        #instance-list { display: grid; gap: 8px; margin-top: 10px; }
+        .instance { padding: 10px; border: 1px solid #2d3948; border-radius: 7px; background: #0d131b; }
+        .instance strong { display: block; font-size: 13px; }
+        .instance small { color: #8494a6; }
+        .instance button { min-height: 28px; margin-top: 7px; padding: 4px 8px; font-size: 11px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <main id="viewport">
+            <div id="viewer"></div>
+            <div id="overlay"></div>
+            <div id="loading">Loading 3DGS scene and collision voxels&</div>
+            <div id="hint">
+                Drag to look � W/A/S/D to move � Q/E vertically � Shift+Click the same semantic point from one or more views.
+                Multiple views improve the triangulated position.
+            </div>
+            <div id="status">initializing</div>
+        </main>
+        <aside>
+            <h1>Semantic instances</h1>
+            <div class="subtle" id="project-name"></div>
+
+            <section>
+                <label for="object-id">Instance ID</label>
+                <input id="object-id" placeholder="chair_01" />
+                <label for="object-type">Semantic type</label>
+                <input id="object-type" placeholder="chair" />
+                <div class="row">
+                    <div>
+                        <label for="object-color">Color</label>
+                        <input id="object-color" value="unknown" />
+                    </div>
+                    <div>
+                        <label for="object-size">Size</label>
+                        <select id="object-size">
+                            <option>small</option>
+                            <option selected>medium</option>
+                            <option>large</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="metric" id="pending-metric">No observations yet.</div>
+                <div class="row">
+                    <button id="undo-observation">Undo observation</button>
+                    <button id="clear-observations">Clear</button>
+                </div>
+                <button class="primary" id="save-instance" style="margin-top:8px">Save point instance</button>
+            </section>
+
+            <section>
+                <div class="row">
+                    <button id="export-json">Export JSON</button>
+                    <button id="import-json">Import JSON</button>
+                </div>
+                <input id="import-file" type="file" accept="application/json,.json" hidden />
+                <div id="instance-list"></div>
+            </section>
+        </aside>
+    </div>
+    <script type="module" src="./semantic-annotator.ts"></script>
+</body>
+</html>
