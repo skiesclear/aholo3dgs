@@ -551,9 +551,16 @@ async function createScene() {
         viewer.render();
     }
 
-    async function captureView(origin: Vector3, direction: Vector3, up: Vector3, width: number, height: number) {
+    async function captureView(
+        origin: Vector3,
+        direction: Vector3,
+        up: Vector3,
+        width: number,
+        height: number,
+        hideDrone = true,
+    ) {
         const previousVisibility = droneRoot.visible;
-        droneRoot.visible = false;
+        droneRoot.visible = !hideDrone;
         viewer.resize({ width, height });
         camera.aspect = width / height;
         camera.position.copy(origin);
@@ -580,6 +587,48 @@ async function createScene() {
         camera.aspect = container.clientWidth / container.clientHeight;
         renderPose();
         return dataUrl;
+    }
+
+    async function captureGoalFromStart(payload: any) {
+        if (!payload?.cameraPose || !payload?.dronePose) {
+            throw new Error('capture_goal_from_start requires cameraPose and dronePose');
+        }
+        captureInProgress = true;
+        try {
+            resolvePose(payload.dronePose, 'goal-context');
+            renderPose(false);
+            const cameraPose = clonePose(payload.cameraPose);
+            const width = Math.max(1, Math.floor(payload?.width || container.clientWidth || 960));
+            const height = Math.max(1, Math.floor(payload?.height || container.clientHeight || 540));
+            const basis = getBasis(cameraPose);
+            const origin = poseToVector(cameraPose);
+            const image = await captureView(
+                origin,
+                basis.forward,
+                basis.imageUp,
+                width,
+                height,
+                false,
+            );
+            return {
+                image,
+                width,
+                height,
+                cameraPose,
+                dronePose: clonePose(pose),
+                camera: cameraViewMetadata(
+                    origin,
+                    basis.forward,
+                    basis.imageUp,
+                    width,
+                    height,
+                    camera.fov,
+                ),
+            };
+        } finally {
+            captureInProgress = false;
+            renderPose();
+        }
     }
 
     function captureVoxelDepthView(
@@ -784,6 +833,8 @@ async function createScene() {
                 return getState();
             case 'capture_five':
                 return captureFive(command.payload || {});
+            case 'capture_goal_from_start':
+                return captureGoalFromStart(command.payload || {});
             case 'capture_depth_five': {
                 captureInProgress = true;
                 try {
