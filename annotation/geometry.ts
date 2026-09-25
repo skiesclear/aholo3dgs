@@ -42,6 +42,7 @@ export function screenRay(
 function closestRayPair(a: Observation, b: Observation) {
     const p1 = vector(a.rayOrigin);
     const p2 = vector(b.rayOrigin);
+    if (p1.clone().sub(p2).length() < 0.1) return null;
     const d1 = vector(a.rayDirection).normalize();
     const d2 = vector(b.rayDirection).normalize();
     const w0 = p1.clone().sub(p2);
@@ -79,10 +80,15 @@ export function solveObservations(observations: Observation[]) {
         const residual = pairs.reduce((sum, pair) => sum + pair.residual, 0) / pairs.length;
         return { point, residual, method: 'ray_triangulation' as const };
     }
-    const point = observations.reduce(
+    const surfaceObservations = observations.filter(
+        (observation): observation is Observation & { surfacePoint: Vec3Record } =>
+            observation.surfacePoint !== null,
+    );
+    if (surfaceObservations.length === 0) return null;
+    const point = surfaceObservations.reduce(
         (sum, observation) => sum.add(vector(observation.surfacePoint)),
         new Vector3(),
-    ).multiplyScalar(1 / observations.length);
+    ).multiplyScalar(1 / surfaceObservations.length);
     return { point, residual: null, method: 'surface_mean' as const };
 }
 

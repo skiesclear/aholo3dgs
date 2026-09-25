@@ -1,6 +1,6 @@
 # Aholo semantic instance annotator
 
-This is an isolated browser entry point for instance-aware point annotation.
+This is an isolated browser entry point for instance-aware geometric annotation.
 It does not modify or replace `index.html` or `python-control.html`.
 
 ## Open
@@ -24,22 +24,36 @@ Optional initial camera parameters are `x`, `y`, `z`, `yaw`, and
 ## Workflow
 
 1. Drag to rotate the camera and use W/A/S/D/Q/E to move.
-2. Hold Shift and click a visible semantic point.
-3. Move to another viewpoint and Shift+Click the same point again.
-4. Enter a stable instance id and semantic type, then save.
-5. Export `object_anchors_<env>.json`.
+2. For thin or non-solid objects, keep the default Multiview ray mode.
+3. Choose Point, Oriented 3D box, Planar quadrilateral, or Polygon area.
+4. Hold Shift and click one exact vertex. Move the camera to another position
+   and Shift+Click that exact vertex again.
+5. Confirm the vertex and repeat for the remaining vertices.
+6. Use Voxel surface snap only for solid surfaces represented by collision voxels.
+7. Enter a stable instance id and semantic type, then save and export.
 
-The exported `objects` records use `shape: point`,
-`landmark_policy: point_center`, and OpenFly navigation coordinates, so they
+The exported records use OpenFly-compatible `point`, `box`, `rectangle`,
+and `polygon` shapes and OpenFly navigation coordinates, so they
 can be consumed by `build_landmarks_from_objects.py`. Additional
 `annotation` metadata records every camera ray, clicked surface point,
 triangulation residual, and confidence for later auditing.
+
+Multiview ray mode deliberately ignores the first collision surface. This
+prevents thin objects such as nets, wires, signs, and rails from being snapped
+to the floor or a wall when they are absent from the coarse collision voxels.
+The default maximum accepted ray residual is 0.5 meters and can be changed with
+the `maxTriangulationResidual` URL parameter.
+Quadrilateral and polygon vertices must be coplanar within 0.25 meters. Change
+this tolerance with the `maxPlanarityError` URL parameter when appropriate.
 
 Annotations are autosaved in browser local storage. Import/export is explicit
 so existing project files are never overwritten by the browser.
 
 ## Current scope
 
-This first version supports point instances. It provides the shared foundation
-for later oriented boxes, planes, image masks, and multi-view instance
-segmentation without coupling those features to the drone controller.
+An oriented box uses a base center, a length-direction edge point, a
+width-direction edge point, and a numeric height. The direction points specify
+half-extents, and yaw comes from the length direction in the OpenFly XY plane.
+A quadrilateral requires four ordered corners. A polygon accepts at least three
+ordered vertices. Plane vertices remain fully three-dimensional instead of
+being flattened onto the navigation ground.
